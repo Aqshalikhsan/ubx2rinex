@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ubx2rinex launcher for Linux / macOS.
-#   ./convert.sh /path/ke/data
-#   ./convert.sh a.ubx b.ubx --outdir /path/hasil
+# ubx2rinex launcher for Linux / macOS / WSL.
+#   ./convert.sh /path/to/data
+#   ./convert.sh a.ubx b.ubx --outdir /path/out
 
 set -euo pipefail
 
@@ -9,20 +9,20 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 py="$here/.venv/bin/python"
 
 if [ ! -x "$py" ]; then
-    echo "Virtual environment belum dibuat."
-    echo "Jalankan dulu:  ./setup.sh"
+    echo "Virtual environment not found."
+    echo "Run this first:  ./setup.sh"
     exit 1
 fi
 
 if [ $# -eq 0 ]; then
     cat <<'EOF'
-ubx2rinex - konversi log mentah u-blox UBX ke RINEX .YYo / .YYn
+ubx2rinex - convert raw u-blox UBX logs to RINEX .YYo / .YYn
 
-  ./convert.sh /path/ke/folder      semua .ubx dalam folder, sekali jalan
-  ./convert.sh a.ubx b.ubx          beberapa file sekaligus
-  ./convert.sh /data --recursive    termasuk subfolder
+  ./convert.sh /path/to/folder      every .ubx in the folder, one run
+  ./convert.sh a.ubx b.ubx          several files at once
+  ./convert.sh /data --recursive    include subfolders
 
-  ./convert.sh --help               daftar opsi lengkap
+  ./convert.sh --help               full option list
 EOF
     exit 0
 fi

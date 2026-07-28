@@ -63,15 +63,14 @@ try:
     from pygnssutils.rinex_conv_nav import RinexConverterNavigation
     from pygnssutils.rinex_globals import NAV, OBS, RINEX_OK, START, TARGET
 except ImportError:
-    _win = sys.platform == "win32"
     sys.exit(
-        "pygnssutils tidak ditemukan.\n"
+        "pygnssutils not found.\n"
         + (
-            "Jalankan setup.ps1 sekali dulu, lalu gunakan convert.bat "
-            "(atau .venv\\Scripts\\python.exe ubx2rinex.py ...)."
-            if _win
-            else "Jalankan ./setup.sh sekali dulu, lalu gunakan ./convert.sh "
-            "(atau .venv/bin/python ubx2rinex.py ...)."
+            "Run setup.ps1 once, then use convert.bat "
+            "(or .venv\\Scripts\\python.exe ubx2rinex.py ...)."
+            if sys.platform == "win32"
+            else "Run ./setup.sh once, then use ./convert.sh "
+            "(or .venv/bin/python ubx2rinex.py ...)."
         )
     )
 
@@ -331,7 +330,7 @@ def convert(path: Path, args) -> bool:
     info = probe(path)
 
     if not (info["rawx"] or info["raw"]):
-        print("  DILEWATI: tidak ada RXM-RAWX/RXM-RAW, file observasi tidak bisa dibuat.")
+        print("  SKIPPED: no RXM-RAWX/RXM-RAW, cannot build an observation file.")
         return False
     rec = info["model"] or "UNKNOWN"
     print(
@@ -339,7 +338,7 @@ def convert(path: Path, args) -> bool:
         + f"   |  RAWX {info['rawx']:,}  SFRBX {info['sfrbx']:,}"
     )
     if not info["sfrbx"]:
-        print("  catatan  : tidak ada RXM-SFRBX, file navigasi akan kosong.")
+        print("  note     : no RXM-SFRBX, no navigation file will be written.")
 
     marker = args.marker or path.stem.upper()[:60]
     types = (OBS, NAV) if info["sfrbx"] else (OBS,)
@@ -352,7 +351,7 @@ def convert(path: Path, args) -> bool:
         obs_dest = outdir / f"{path.stem}.{yy}o"
         nav_dest = (outdir / f"{path.stem}.{yy}n") if info["sfrbx"] else None
         if obs_dest.exists() and not args.force:
-            print(f"  DILEWATI: {obs_dest.name} sudah ada (pakai --force untuk menimpa).")
+            print(f"  SKIPPED: {obs_dest.name} already exists (use --force to overwrite).")
             return False
 
     rc = RinexConverter(
@@ -382,7 +381,7 @@ def convert(path: Path, args) -> bool:
         verbosity=0,
     )
     if rc.process_input(infile=path, stopevent=None, progcallback=prog_callback) != RINEX_OK:
-        print("  GAGAL: konversi tidak menghasilkan record.")
+        print("  FAILED: conversion produced no records.")
         return False
     print()
 
@@ -394,7 +393,7 @@ def convert(path: Path, args) -> bool:
         obs_dest = outdir / tmp_obs.name
         nav_dest = outdir / produced[NAV].name if NAV in produced else None
         if obs_dest.exists() and not args.force and obs_dest != tmp_obs:
-            print(f"  DILEWATI: {obs_dest.name} sudah ada (pakai --force untuk menimpa).")
+            print(f"  SKIPPED: {obs_dest.name} already exists (use --force to overwrite).")
             tmp_obs.unlink()
             if NAV in produced:
                 produced[NAV].unlink()
@@ -416,19 +415,19 @@ def convert(path: Path, args) -> bool:
     obs_sys = {}
     for sv in s["obs_sats"]:
         obs_sys[sv[0]] = obs_sys.get(sv[0], 0) + 1
-    print(f"  OBS -> {obs_dest.name}   {s['epochs']:,} epoch, {len(s['obs_sats'])} satelit,"
-          f" {s['obs_recs']:,} record")
+    print(f"  OBS -> {obs_dest.name}   {s['epochs']:,} epochs, {len(s['obs_sats'])} satellites,"
+          f" {s['obs_recs']:,} records")
     print("        " + "  ".join(f"{GNSSNAME.get(k, k)} {v}" for k, v in sorted(obs_sys.items())))
     if nav_dest:
         missing = sorted(s["obs_sats"] - s["eph_sats"])
-        print(f"  NAV -> {nav_dest.name}   {s['eph_recs']} ephemeris,"
-              f" {len(s['eph_sats'])} satelit")
+        print(f"  NAV -> {nav_dest.name}   {s['eph_recs']} ephemerides,"
+              f" {len(s['eph_sats'])} satellites")
         if missing:
-            print(f"        tanpa ephemeris (terlacak terlalu singkat): {' '.join(missing)}")
+            print(f"        no ephemeris (tracked too briefly): {' '.join(missing)}")
     if info["xyz"]:
         print("  APPROX POSITION XYZ  %.4f %.4f %.4f" % info["xyz"])
     if s["mismatch"]:
-        print(f"  PERINGATAN: {s['mismatch']} epoch dengan jumlah satelit tidak konsisten.")
+        print(f"  WARNING: {s['mismatch']} epoch(s) with an inconsistent satellite count.")
     return True
 
 
@@ -441,18 +440,22 @@ def collect(targets, recursive):
             files += sorted(Path().glob(str(t)))
         elif p.is_dir():
             it = p.rglob("*") if recursive else p.glob("*")
+            # Skip dot-directories *below the search root* - virtualenvs and the
+            # like hold .log/.dat/.bin files that are not GNSS logs. Only the
+            # relative part is tested, so a root such as C:\...\.survey\data
+            # still works.
             files += sorted(
                 f
                 for f in it
                 if f.suffix.lower() in UBX_EXTS
-                # never descend into virtualenvs or dot-directories: they hold
-                # .log/.dat/.bin files that are not GNSS logs
-                and not any(part.startswith(".") for part in f.parts)
+                and not any(
+                    part.startswith(".") for part in f.relative_to(p).parts[:-1]
+                )
             )
         elif p.is_file():
             files.append(p)
         else:
-            print(f"tidak ditemukan: {t}")
+            print(f"not found: {t}")
     seen, out = set(), []
     for f in files:
         r = f.resolve()
@@ -465,34 +468,34 @@ def collect(targets, recursive):
 def main():
     ap = argparse.ArgumentParser(
         prog="ubx2rinex",
-        description="Konversi batch log mentah u-blox UBX menjadi RINEX observation (.YYo) dan navigation (.YYn).",
+        description="Batch-convert raw u-blox UBX logs to RINEX observation (.YYo) and navigation (.YYn) files.",
         epilog=(
-            "Contoh:  ubx2rinex.py C:\\data  |  ubx2rinex.py a.ubx b.ubx --outdir C:\\hasil"
+            "Examples:  ubx2rinex.py C:\\data  |  ubx2rinex.py a.ubx b.ubx --outdir C:\\out"
             if sys.platform == "win32"
-            else "Contoh:  ubx2rinex.py ~/data  |  ubx2rinex.py a.ubx b.ubx --outdir ~/hasil"
+            else "Examples:  ubx2rinex.py ~/data  |  ubx2rinex.py a.ubx b.ubx --outdir ~/out"
         ),
     )
-    ap.add_argument("targets", nargs="+", help="file .ubx, folder, atau pola wildcard")
-    ap.add_argument("--outdir", default="", help="folder keluaran (default: sebelah file input)")
-    ap.add_argument("--rinex", default="3.05", choices=("3.05", "4.02"), help="versi RINEX")
-    ap.add_argument("--gnss", default="", help="filter konstelasi, mis. G,E,C (default: semua)")
-    ap.add_argument("--marker", default="", help="nama marker (default: dari nama file)")
-    ap.add_argument("--markertype", default="GEODETIC", help="tipe marker")
-    ap.add_argument("--antenna", default="UNKNOWN", help="tipe antena")
-    ap.add_argument("--height", type=float, default=0.0, help="tinggi antena/delta H (meter)")
-    ap.add_argument("--observer", default="", help="nama observer/agensi")
-    ap.add_argument("--longname", action="store_true", help="pakai nama panjang RINEX 3 (.rnx)")
-    ap.add_argument("--recursive", action="store_true", help="telusuri subfolder")
-    ap.add_argument("--force", action="store_true", help="timpa keluaran yang sudah ada")
+    ap.add_argument("targets", nargs="+", help=".ubx file, folder, or wildcard pattern")
+    ap.add_argument("--outdir", default="", help="output folder (default: next to the input file)")
+    ap.add_argument("--rinex", default="3.05", choices=("3.05", "4.02"), help="RINEX version")
+    ap.add_argument("--gnss", default="", help="constellation filter, e.g. G,E,C (default: all)")
+    ap.add_argument("--marker", default="", help="marker name (default: from the file name)")
+    ap.add_argument("--markertype", default="GEODETIC", help="marker type")
+    ap.add_argument("--antenna", default="UNKNOWN", help="antenna type")
+    ap.add_argument("--height", type=float, default=0.0, help="antenna height / delta H (metres)")
+    ap.add_argument("--observer", default="", help="observer / agency name")
+    ap.add_argument("--longname", action="store_true", help="use RINEX 3 long file names (.rnx)")
+    ap.add_argument("--recursive", action="store_true", help="walk subfolders")
+    ap.add_argument("--force", action="store_true", help="overwrite existing output")
     args = ap.parse_args()
 
     files = collect(args.targets, args.recursive)
     if not files:
-        sys.exit("Tidak ada file untuk dikonversi.")
+        sys.exit("Nothing to convert.")
 
-    print(f"{len(files)} file akan diproses.")
+    print(f"{len(files)} file(s) to process.")
     ok = sum(convert(f, args) for f in files)
-    print(f"\n{'=' * 72}\nSelesai: {ok} dari {len(files)} file berhasil dikonversi.")
+    print(f"\n{'=' * 72}\nDone: {ok} of {len(files)} file(s) converted.")
 
 
 if __name__ == "__main__":
