@@ -10,6 +10,14 @@ Runs on **Windows, Linux, and macOS** — the converter is pure Python, only the
 
 **Windows** — right-click `setup.ps1` → **Run with PowerShell**.
 
+If your execution policy blocks that, run it from a terminal instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+Windows 10 and 11 are supported. Windows 8.1 and 7 are not: they cannot run Python 3.10+, which `pygnssutils` requires. Windows PowerShell 5.1 (built into Windows 10/11) is enough — PowerShell 7 is not needed.
+
 **Linux / macOS / WSL:**
 
 ```bash

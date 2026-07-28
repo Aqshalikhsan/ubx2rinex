@@ -10,14 +10,20 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $venv = Join-Path $here ".venv"
 $py = Join-Path $venv "Scripts\python.exe"
 
+# Native commands are checked with $LASTEXITCODE, never $?. In Windows
+# PowerShell 5.1 anything an executable writes to stderr flips $? to False even
+# when it exited 0, so a pip upgrade notice would otherwise be read as a broken
+# environment and delete a perfectly good .venv.
 function Test-VenvOk {
     if (-not (Test-Path $py)) { return $false }
     & $py -m pip --version *> $null
-    return $?
+    return ($LASTEXITCODE -eq 0)
 }
 
 python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" *> $null
-if (-not $?) { throw "Python 3.10 or newer is required (pygnssutils uses modern type syntax)." }
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 3.10 or newer is required, and must be on PATH (pygnssutils uses modern type syntax)."
+}
 
 # A venv copied from Linux has bin/ instead of Scripts/ and is unusable here.
 if ((Test-Path (Join-Path $venv "bin")) -and -not (Test-Path (Join-Path $venv "Scripts"))) {
@@ -46,10 +52,15 @@ if (Test-VenvOk) {
 Write-Host "Installing pygnssutils ..." -ForegroundColor Cyan
 & $py -m pip install --quiet --upgrade pip
 & $py -m pip install --quiet --upgrade pygnssutils
+# $ErrorActionPreference does not apply to native commands, so check explicitly.
+if ($LASTEXITCODE -ne 0) {
+    throw "pip install failed (exit $LASTEXITCODE). Check your network or proxy settings."
+}
 
-$ver = (& $py -m pip show pygnssutils | Select-String "^Version:").ToString()
+$ver = & $py -m pip show pygnssutils | Select-String "^Version:"
+if (-not $ver) { throw "pygnssutils did not install correctly." }
 Write-Host ""
-Write-Host "Done. pygnssutils $($ver -replace 'Version:\s*','')" -ForegroundColor Green
+Write-Host "Done. pygnssutils $($ver.ToString() -replace 'Version:\s*','')" -ForegroundColor Green
 Write-Host ""
 Write-Host "Usage:"
 Write-Host "  - drag .ubx files or a folder onto convert.bat, or"
