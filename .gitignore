@@ -1,0 +1,25 @@
+# virtual environment (platform-specific, rebuild with setup.ps1 / setup.sh)
+.venv/
+venv/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# GNSS data - raw logs and converted products stay out of the repo
+*.ubx
+*.rnx
+*.[0-9][0-9]o
+*.[0-9][0-9]n
+*.[0-9][0-9]g
+*.[0-9][0-9]l
+*.obs
+*.nav
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
