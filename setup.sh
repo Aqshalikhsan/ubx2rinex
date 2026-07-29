@@ -9,18 +9,34 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 venv="$here/.venv"
 py="$venv/bin/python"
 
+install_hint() {
+    cat >&2 <<'EOF'
+Install Python 3.10 or newer, then run this script again:
+
+    Debian/Ubuntu/WSL  sudo apt update && sudo apt install -y python3 python3-venv
+    Fedora/RHEL        sudo dnf install -y python3
+    macOS              brew install python
+
+Already have a suitable interpreter elsewhere? Point at it:
+
+    PYTHON=/path/to/python3.12 ./setup.sh
+EOF
+}
+
 PYTHON="${PYTHON:-python3}"
 if ! command -v "$PYTHON" >/dev/null 2>&1; then
-    echo "Python 3 not found. Install it, or run: PYTHON=/path/to/python3 ./setup.sh" >&2
+    echo "Python 3 not found on PATH." >&2
+    install_hint
     exit 1
 fi
 
 pyver="$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 echo "Python: $("$PYTHON" -c 'import sys; print(sys.executable)') ($pyver)"
-"$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' || {
-    echo "Python 3.10 or newer is required (pygnssutils uses modern type syntax)." >&2
+if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+    echo "Python $pyver found, but 3.10 or newer is required (pygnssutils uses modern type syntax)." >&2
+    install_hint
     exit 1
-}
+fi
 
 venv_ok() { [ -x "$py" ] && "$py" -m pip --version >/dev/null 2>&1; }
 

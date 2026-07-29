@@ -6,6 +6,33 @@ Built for repeated use on arbitrary datasets: no station name, receiver type, or
 
 Runs on **Windows, Linux, and macOS** — the converter is pure Python, only the launchers differ per platform.
 
+## Prerequisite: install Python first
+
+**Python 3.10 or newer must already be on the machine.** The setup scripts build a virtual environment from it — they do not install Python for you. Check what you have:
+
+```
+python --version        # Windows
+python3 --version       # Linux / macOS
+```
+
+If that reports an error, or a version below 3.10, install Python before going any further.
+
+**Windows** — download from [python.org/downloads](https://www.python.org/downloads/) and, in the installer, tick **"Add python.exe to PATH"** on the first screen. Without it the setup script cannot find Python and stops with *"Python 3.10 or newer is required, and must be on PATH"*. If you have already installed it without that box ticked, re-run the installer and choose **Modify**, or add the folder to PATH by hand.
+
+The Microsoft Store build of Python also works.
+
+Windows 10 and 11 are supported. Windows 8.1 and 7 are not — they cannot run Python 3.10+, which `pygnssutils` requires. Windows PowerShell 5.1 (built into Windows 10/11) is enough; PowerShell 7 is not needed.
+
+**Debian / Ubuntu / WSL:**
+
+```bash
+sudo apt update && sudo apt install -y python3 python3-venv
+```
+
+`python3-venv` matters: without it `python3 -m venv` produces an environment with no pip, and installation fails with *"No module named pip"*. `setup.sh` detects that case and prints the exact package to install.
+
+**Fedora / RHEL:** `sudo dnf install -y python3`  •  **macOS:** `brew install python` (or python.org installer)
+
 ## Install (once)
 
 **Windows** — right-click `setup.ps1` → **Run with PowerShell**.
@@ -16,8 +43,6 @@ If your execution policy blocks that, run it from a terminal instead:
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-Windows 10 and 11 are supported. Windows 8.1 and 7 are not: they cannot run Python 3.10+, which `pygnssutils` requires. Windows PowerShell 5.1 (built into Windows 10/11) is enough — PowerShell 7 is not needed.
-
 **Linux / macOS / WSL:**
 
 ```bash
@@ -25,9 +50,9 @@ chmod +x setup.sh convert.sh
 ./setup.sh
 ```
 
-Both create a virtual environment in `.venv/` and install `pygnssutils`. Python 3.10+ is required (pygnssutils uses modern type-annotation syntax). To pick a specific interpreter: `PYTHON=/path/to/python3.12 ./setup.sh`.
+Both create a virtual environment in `.venv/` and install `pygnssutils` into it, leaving your system Python untouched. To pick a specific interpreter: `PYTHON=/path/to/python3.12 ./setup.sh`.
 
-On Debian, Ubuntu, and WSL, `ensurepip` ships in a separate package. If the virtual environment ends up without pip, `setup.sh` detects it, rebuilds, and prints the exact `apt install` command you need.
+Re-run the setup script any time to update the dependency or repair a broken `.venv`.
 
 ## Usage
 

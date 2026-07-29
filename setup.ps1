@@ -20,9 +20,24 @@ function Test-VenvOk {
     return ($LASTEXITCODE -eq 0)
 }
 
+$installHint = @"
+Install Python 3.10 or newer from https://www.python.org/downloads/ and tick
+"Add python.exe to PATH" in the installer, then run this script again.
+"@
+
+# Windows 10/11 ship an App Execution Alias that opens the Microsoft Store when
+# Python is absent, so "python" existing is not proof that it runs.
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw "Python was not found on PATH.`n$installHint"
+}
+$pyver = (python -c "import sys; print('%d.%d' % sys.version_info[:2])" 2>$null)
+if ($LASTEXITCODE -ne 0 -or -not $pyver) {
+    throw "Python is on PATH but did not run (a Microsoft Store alias is the usual cause).`n$installHint"
+}
+Write-Host "Python: $pyver"
 python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" *> $null
 if ($LASTEXITCODE -ne 0) {
-    throw "Python 3.10 or newer is required, and must be on PATH (pygnssutils uses modern type syntax)."
+    throw "Python $pyver found, but 3.10 or newer is required (pygnssutils uses modern type syntax).`n$installHint"
 }
 
 # A venv copied from Linux has bin/ instead of Scripts/ and is unusable here.
